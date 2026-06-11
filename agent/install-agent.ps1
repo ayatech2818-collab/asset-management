@@ -24,10 +24,11 @@ $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ag
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments
 
-# Trigger: at startup, plus every 5 minutes indefinitely.
+# Trigger: at startup, plus every 5 minutes for 10 years.
+# ([TimeSpan]::MaxValue is rejected by the Task Scheduler XML schema.)
 $atStartup = New-ScheduledTaskTrigger -AtStartup
 $repeating = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-  -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
+  -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
 
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

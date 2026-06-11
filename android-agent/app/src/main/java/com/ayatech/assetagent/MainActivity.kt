@@ -18,6 +18,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
@@ -71,13 +72,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveAndStart() {
-        val server = serverInput.text.toString().trim().trimEnd('/')
+        val raw = serverInput.text.toString().trim()
         val token = tokenInput.text.toString().trim()
 
-        if (!server.startsWith("http://") && !server.startsWith("https://")) {
+        // Normalize to scheme + host (people paste e.g. https://app.example.com/login).
+        val server = try {
+            val u = java.net.URL(raw)
+            if (u.protocol != "http" && u.protocol != "https") "" else "${u.protocol}://${u.authority}"
+        } catch (_: Exception) {
+            ""
+        }
+        if (server.isBlank()) {
             Toast.makeText(this, "Server URL must start with http(s)://", Toast.LENGTH_LONG).show()
             return
         }
+        serverInput.setText(server)
         if (token.length < 16) {
             Toast.makeText(this, "Paste the device token from the dashboard", Toast.LENGTH_LONG).show()
             return
@@ -122,8 +131,14 @@ class MainActivity : AppCompatActivity() {
         val test = OneTimeWorkRequestBuilder<HeartbeatWorker>().build()
         val wm = WorkManager.getInstance(this)
         wm.enqueue(test)
+        // Refresh on every state change so failures + retries are visible,
+        // not just clean finishes.
         wm.getWorkInfoByIdLiveData(test.id).observe(this) { info ->
-            if (info != null && info.state.isFinished) refreshStatus()
+            when (info?.state) {
+                WorkInfo.State.RUNNING -> statusText.text = "Sending heartbeat…"
+                WorkInfo.State.BLOCKED, null -> {}
+                else -> refreshStatus()
+            }
         }
     }
 

@@ -23,11 +23,12 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) :
         val token = prefs.getString(Prefs.KEY_TOKEN, null)
         if (server.isNullOrBlank() || token.isNullOrBlank()) return Result.failure()
 
-        val payload = Telemetry.collect(applicationContext, token)
         val stamp = SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date())
 
-        return withContext(Dispatchers.IO) {
-            try {
+        // Any throw anywhere must end up as readable text in the status line.
+        return try {
+            val payload = Telemetry.collect(applicationContext, token)
+            withContext(Dispatchers.IO) {
                 val conn = URL("$server/api/ingest").openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
@@ -38,20 +39,40 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) :
                 val code = conn.responseCode
                 conn.disconnect()
 
-                if (code in 200..299) {
-                    prefs.edit().putString(Prefs.KEY_LAST_RESULT, "Sent OK · $stamp").apply()
-                    Result.success()
-                } else {
-                    prefs.edit().putString(Prefs.KEY_LAST_RESULT, "Server said HTTP $code · $stamp").apply()
-                    // 401 = bad/rotated token: retrying won't help until re-enrolled.
-                    if (code == 401) Result.failure() else Result.retry()
+                when {
+                    code in 200..299 -> {
+                        prefs.edit().putString(Prefs.KEY_LAST_RESULT, "Sent OK · $stamp").apply()
+                        Result.success()
+                    }
+                    code in 300..399 -> {
+                        prefs.edit().putString(
+                            Prefs.KEY_LAST_RESULT,
+                            "HTTP $code redirect — check the server URL (no /login etc.) · $stamp",
+                        ).apply()
+                        Result.retry()
+                    }
+                    code == 401 -> {
+                        // Bad or rotated token: retrying won't help until re-enrolled.
+                        prefs.edit().putString(
+                            Prefs.KEY_LAST_RESULT,
+                            "Token rejected (HTTP 401) — re-enroll the asset and paste the new token · $stamp",
+                        ).apply()
+                        Result.failure()
+                    }
+                    else -> {
+                        prefs.edit().putString(Prefs.KEY_LAST_RESULT, "Server said HTTP $code · $stamp").apply()
+                        Result.retry()
+                    }
                 }
-            } catch (e: Exception) {
-                prefs.edit()
-                    .putString(Prefs.KEY_LAST_RESULT, "Failed: ${e.message ?: "network error"} · $stamp")
-                    .apply()
-                Result.retry()
             }
+        } catch (t: Throwable) {
+            prefs.edit()
+                .putString(
+                    Prefs.KEY_LAST_RESULT,
+                    "Failed: ${t.javaClass.simpleName}: ${t.message ?: "no detail"} · $stamp",
+                )
+                .apply()
+            Result.retry()
         }
     }
 

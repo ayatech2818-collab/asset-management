@@ -31,18 +31,21 @@ object Telemetry {
         json.put("agent_version", "android-1.0.0")
         json.put("hostname", deviceName(ctx))
 
-        battery(ctx, json)
-        storage(json)
-        ram(ctx, json)
-        json.put("uptime_minutes", (SystemClock.elapsedRealtime() / 60000L).toInt())
-        idle(ctx, json)
-
-        val loc = bestLocation(ctx)
-        if (loc != null) {
-            json.put("lat", loc.latitude)
-            json.put("lng", loc.longitude)
-            json.put("loc_accuracy_m", loc.accuracy.roundToInt())
-            json.put("loc_source", "gps")
+        // Each collector is independent: a failing sensor must never stop the
+        // heartbeat itself from going out.
+        runCatching { battery(ctx, json) }
+        runCatching { storage(json) }
+        runCatching { ram(ctx, json) }
+        runCatching { json.put("uptime_minutes", (SystemClock.elapsedRealtime() / 60000L).toInt()) }
+        runCatching { idle(ctx, json) }
+        runCatching {
+            val loc = bestLocation(ctx)
+            if (loc != null) {
+                json.put("lat", loc.latitude)
+                json.put("lng", loc.longitude)
+                json.put("loc_accuracy_m", loc.accuracy.roundToInt())
+                json.put("loc_source", "gps")
+            }
         }
         return json
     }

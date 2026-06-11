@@ -45,5 +45,5 @@ city-level location). No keystrokes, no browsing history, no file contents.
 - A local administrator can stop or remove the task — this agent is for
   monitoring company devices held by cooperating employees, not theft recovery.
 - Reinstall after an OS wipe.
-- Mac/Android agents are separate (macOS uses the same approach; Android is a
-  companion app in Phase 6).
+- Mac/Android agents are separate (macOS uses the same approach; the Android
+  agent lives in `../android-agent/` — see its README).

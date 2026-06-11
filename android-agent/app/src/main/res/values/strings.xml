@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Asset Agent</string>
+    <string name="server_hint">Server URL (https://your-app.vercel.app)</string>
+    <string name="token_hint">Device token (from the asset\'s Enroll panel)</string>
+    <string name="save_start">Save &amp; start monitoring</string>
+    <string name="send_now">Send heartbeat now</string>
+    <string name="battery_opt">Allow background running (battery)</string>
+    <string name="status_idle">Not configured yet. Paste the server URL and the device token, then tap Save.</string>
+    <string name="privacy_note">This company-owned device reports its status (battery, storage, approximate location) to the asset management server every 15 minutes. No messages, photos, or personal data are collected.</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Indigo circle with a white "pulse" dot — matches the dashboard accent. -->
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M12,1A11,11 0 1,1 11.99,1Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,7.5A4.5,4.5 0 1,1 11.99,7.5Z" />
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M12,10A2,2 0 1,1 11.99,10Z" />
+</vector>

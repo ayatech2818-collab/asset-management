@@ -56,6 +56,7 @@ app/(dashboard)         Authenticated shell + pages (assets, employees,
                         transfers, my-assets, alerts, monitoring, dashboard)
 app/api/ingest          Device heartbeat endpoint (token-auth, service role)
 agent/                  Windows monitoring agent (PowerShell) + installer
+android-agent/          Android monitoring agent (Kotlin, build with Android Studio)
 components/             UI components (assets, transfers, alerts, monitoring)
 lib/actions/            Server actions (assets, employees, transfers, alerts,
                         monitoring)

@@ -65,6 +65,29 @@ try {
 $publicIp = $null
 try { $publicIp = (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5) } catch {}
 
+# --- Precise location via the Windows Location service (Wi-Fi positioning,
+#     typically 30-150 m). Needs Settings > Privacy > Location ON, including
+#     "Let desktop apps access your location". Falls back silently to
+#     server-side IP geolocation when unavailable. ---
+$lat = $null; $lng = $null; $locAcc = $null
+try {
+  Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction Stop
+  $null = [Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime]
+  $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() |
+    Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and
+                   $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' } |
+    Select-Object -First 1
+  $geo = New-Object Windows.Devices.Geolocation.Geolocator
+  $geo.DesiredAccuracy = [Windows.Devices.Geolocation.PositionAccuracy]::High
+  $task = $asTask.MakeGenericMethod([Windows.Devices.Geolocation.Geoposition]).Invoke($null, @($geo.GetGeopositionAsync()))
+  if ($task.Wait(20000) -and $task.Result) {
+    $pos = $task.Result.Coordinate
+    $lat = [math]::Round($pos.Point.Position.Latitude, 6)
+    $lng = [math]::Round($pos.Point.Position.Longitude, 6)
+    $locAcc = [int]$pos.Accuracy
+  }
+} catch {}
+
 # --- Build + send heartbeat ---
 $payload = @{
   device_token   = $Token
@@ -78,8 +101,15 @@ $payload = @{
   disk_free_gb   = $diskFree
   cpu_pct        = $cpu
   ram_pct        = $ram
-  agent_version  = "ps-1.0.0"
-} | ConvertTo-Json
+  agent_version  = "ps-1.1.0"
+}
+if ($lat -ne $null) {
+  $payload.lat = $lat
+  $payload.lng = $lng
+  $payload.loc_accuracy_m = $locAcc
+  $payload.loc_source = "wifi"
+}
+$payload = $payload | ConvertTo-Json
 
 try {
   $resp = Invoke-RestMethod -Method Post -Uri "$Server/api/ingest" `

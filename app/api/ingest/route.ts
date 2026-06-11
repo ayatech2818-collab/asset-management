@@ -137,6 +137,11 @@ export async function POST(req: NextRequest) {
       city = geo.city;
       loc_source = "ip";
     }
+  } else {
+    // Device sent precise coordinates — keep them, but still resolve a
+    // human-readable city label from the IP for the dashboard.
+    const geo = await geolocate(ip);
+    if (geo) city = geo.city;
   }
 
   await admin.from("heartbeats").insert({

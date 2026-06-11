@@ -38,7 +38,9 @@ BEGIN
     RAISE EXCEPTION 'Invalid platform: %', p_platform;
   END IF;
 
-  v_token := encode(gen_random_bytes(24), 'hex');
+  -- Two v4 UUIDs = 64 hex chars / ~244 random bits. gen_random_uuid() is
+  -- built into Postgres (pg_catalog), so it resolves even with search_path=''.
+  v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
 
   INSERT INTO public.device_enrollments
     (asset_id, device_token, platform, is_active, online_status)

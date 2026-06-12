@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, MapPin, ExternalLink, Clock } from "lucide-react";
 import { requireStaff } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { ActivityChart, type ActivityPoint } from "@/components/monitoring/ActivityChart";
+import {
+  cadenceFor,
+  computeSessions,
+  dailyUsage,
+  fmtMinutes,
+  fmtRange,
+} from "@/lib/usage";
 import type { Asset, DeviceEnrollment, Heartbeat } from "@/lib/types";
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
@@ -38,8 +45,12 @@ export default async function DeviceDetailPage({
         .from("heartbeats")
         .select("*")
         .eq("asset_id", assetId)
+        .gte(
+          "reported_at",
+          new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+        )
         .order("reported_at", { ascending: false })
-        .limit(100),
+        .limit(1000),
     ]);
 
   const asset = assetData as Asset | null;
@@ -49,8 +60,13 @@ export default async function DeviceDetailPage({
   const heartbeats = (hbData ?? []) as Heartbeat[];
   const latest = heartbeats[0] ?? null;
 
-  // Oldest → newest for the chart.
-  const chart: ActivityPoint[] = [...heartbeats]
+  // Usage sessions derived from the idle/screen-state stream.
+  const cadence = cadenceFor(enrollment.platform);
+  const sessions = computeSessions(heartbeats, cadence);
+  const days = dailyUsage(sessions);
+
+  // Oldest → newest for the chart (most recent 100 beats).
+  const chart: ActivityPoint[] = [...heartbeats.slice(0, 100)]
     .reverse()
     .map((h) => ({
       time: new Date(h.reported_at).toLocaleTimeString([], {
@@ -179,6 +195,85 @@ export default async function DeviceDetailPage({
                 >
                   view map <ExternalLink className="h-3 w-3" />
                 </a>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <Clock className="h-4 w-4 text-slate-400" />
+                Daily usage (last 7 days)
+              </h2>
+              {days.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No usage detected yet. A device counts as &quot;in use&quot;
+                  when there is keyboard/mouse input (laptop) or the screen is
+                  on (phone).
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                      <th className="pb-2 font-medium">Day</th>
+                      <th className="pb-2 text-right font-medium">Times used</th>
+                      <th className="pb-2 text-right font-medium">Total time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {days.map((d) => (
+                      <tr
+                        key={d.label}
+                        className="border-t border-slate-100 dark:border-slate-800"
+                      >
+                        <td className="py-2 text-slate-700 dark:text-slate-300">
+                          {d.label}
+                        </td>
+                        <td className="py-2 text-right text-slate-500">
+                          {d.sessions}
+                        </td>
+                        <td className="py-2 text-right text-slate-900 dark:text-slate-100">
+                          {fmtMinutes(d.activeMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <p className="mt-3 text-xs text-slate-400">
+                Resolution: {cadence} min (the agent&apos;s reporting interval).
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Usage sessions
+              </h2>
+              {sessions.length === 0 ? (
+                <p className="text-sm text-slate-500">No sessions yet.</p>
+              ) : (
+                <ol className="space-y-2">
+                  {sessions.slice(0, 12).map((s) => (
+                    <li
+                      key={s.start.toISOString()}
+                      className="flex flex-wrap items-baseline gap-x-2 border-l-2 border-indigo-200 pl-3 text-sm dark:border-indigo-900"
+                    >
+                      <span className="text-slate-500">
+                        {s.start.toLocaleDateString([], {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {fmtRange(s)}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        ~{fmtMinutes(s.minutes)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
               )}
             </div>
           </div>

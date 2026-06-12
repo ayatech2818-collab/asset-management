@@ -32,7 +32,7 @@ object Telemetry {
     suspend fun collect(ctx: Context, token: String): JSONObject {
         val json = JSONObject()
         json.put("device_token", token)
-        json.put("agent_version", "android-1.0.3")
+        json.put("agent_version", "android-1.1.0")
         json.put("hostname", deviceName(ctx))
 
         // Each collector is independent: a failing sensor must never stop the
@@ -43,6 +43,7 @@ object Telemetry {
         runCatching { json.put("uptime_minutes", (SystemClock.elapsedRealtime() / 60000L).toInt()) }
         runCatching { idle(ctx, json) }
         runCatching { usageStats(ctx, json) }
+        runCatching { deviceFacts(ctx, json) }
         runCatching {
             val loc = bestLocation(ctx)
             if (loc != null) {
@@ -165,6 +166,51 @@ object Telemetry {
         json.put("unlock_count", unlocks)
         json.put("screen_on_minutes", ((screenOnMs / 60_000L).toInt()).coerceAtMost(windowMin))
         prefs.edit().putLong(Prefs.KEY_USAGE_SINCE, now).apply()
+    }
+
+    // Tier 1 inventory + security posture. Static or slow-changing; the
+    // server stores the latest on the enrollment row.
+    private fun deviceFacts(ctx: Context, json: JSONObject) {
+        json.put("manufacturer", Build.MANUFACTURER)
+        json.put("model", Build.MODEL)
+        json.put("os_name", "Android")
+        json.put("os_version", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+
+        val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val mi = ActivityManager.MemoryInfo()
+        am.getMemoryInfo(mi)
+        if (mi.totalMem > 0) {
+            json.put("total_ram_gb", Math.round(mi.totalMem / 1e9 * 10) / 10.0)
+        }
+        runCatching {
+            val stat = StatFs(android.os.Environment.getDataDirectory().path)
+            json.put("total_disk_gb", Math.round(stat.totalBytes / 1e9 * 10) / 10.0)
+        }
+
+        // Storage encryption (default-on for modern Android).
+        runCatching {
+            val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE)
+                as android.app.admin.DevicePolicyManager
+            val st = dpm.storageEncryptionStatus
+            json.put(
+                "disk_encrypted",
+                st == android.app.admin.DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE ||
+                    st == android.app.admin.DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER,
+            )
+        }
+
+        // Connected Wi-Fi SSID (needs location permission, which we hold).
+        runCatching {
+            if (hasLocationPermission(ctx)) {
+                val wm = ctx.applicationContext
+                    .getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+                @Suppress("DEPRECATION")
+                val ssid = wm.connectionInfo?.ssid?.trim('"')
+                if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>") {
+                    json.put("wifi_ssid", ssid)
+                }
+            }
+        }
     }
 
     private fun hasLocationPermission(ctx: Context): Boolean =

@@ -61,6 +61,58 @@ try {
   }
 } catch {}
 
+# --- Tier 1 device facts (inventory + security posture) ---
+$serial = $null; $manufacturer = $null; $model = $null
+$osName = $null; $osVersion = $null; $totalRam = $null; $totalDisk = $null
+$mac = $null; $ssid = $null; $localIp = $null; $diskEnc = $null; $antivirus = $null
+try {
+  $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop
+  if ($bios) { $serial = $bios.SerialNumber }
+} catch {}
+try {
+  $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+  if ($cs) {
+    $manufacturer = $cs.Manufacturer
+    $model = $cs.Model
+    $totalRam = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+  }
+} catch {}
+try {
+  if ($os) {
+    $osName = $os.Caption                       # e.g. "Microsoft Windows 11 Home"
+    $osVersion = "$($os.Version) (build $($os.BuildNumber))"
+  }
+} catch {}
+try {
+  $sysDisk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'"
+  if ($sysDisk) { $totalDisk = [math]::Round($sysDisk.Size / 1GB, 1) }
+} catch {}
+try {
+  # Active adapter: first with a default gateway.
+  $cfg = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=True" |
+    Where-Object { $_.DefaultIPGateway } | Select-Object -First 1
+  if ($cfg) {
+    $mac = $cfg.MACAddress
+    $localIp = ($cfg.IPAddress | Where-Object { $_ -notmatch ':' } | Select-Object -First 1)
+  }
+} catch {}
+try {
+  $wifi = (netsh wlan show interfaces) 2>$null | Select-String '^\s*SSID\s*:\s*(.+)$'
+  if ($wifi) { $ssid = $wifi.Matches[0].Groups[1].Value.Trim() }
+} catch {}
+try {
+  # BitLocker on the system drive (needs admin; SYSTEM scheduled task has it).
+  $bl = Get-CimInstance -Namespace "Root\cimv2\Security\MicrosoftVolumeEncryption" `
+    -ClassName Win32_EncryptableVolume -ErrorAction Stop |
+    Where-Object { $_.DriveLetter -eq $env:SystemDrive }
+  if ($bl) { $diskEnc = ($bl.GetConversionStatus().ConversionStatus -eq 1) }
+} catch {}
+try {
+  $av = Get-CimInstance -Namespace "Root\SecurityCenter2" -ClassName AntiVirusProduct -ErrorAction Stop |
+    Select-Object -First 1
+  if ($av) { $antivirus = $av.displayName }
+} catch {}
+
 # --- Public IP (lets the server geolocate to city level) ---
 $publicIp = $null
 try { $publicIp = (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5) } catch {}
@@ -101,7 +153,19 @@ $payload = @{
   disk_free_gb   = $diskFree
   cpu_pct        = $cpu
   ram_pct        = $ram
-  agent_version  = "ps-1.1.0"
+  serial_number  = $serial
+  manufacturer   = $manufacturer
+  model          = $model
+  os_name        = $osName
+  os_version     = $osVersion
+  total_ram_gb   = $totalRam
+  total_disk_gb  = $totalDisk
+  mac_address    = $mac
+  wifi_ssid      = $ssid
+  local_ip       = $localIp
+  disk_encrypted = $diskEnc
+  antivirus      = $antivirus
+  agent_version  = "ps-1.2.0"
 }
 if ($lat -ne $null) {
   $payload.lat = $lat

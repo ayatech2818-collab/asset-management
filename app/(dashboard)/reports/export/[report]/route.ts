@@ -152,7 +152,10 @@ async function monitoringCsv(supabase: Awaited<ReturnType<typeof createClient>>)
   return toCsv(
     [
       "asset_tag", "asset_name", "platform", "online_status", "last_seen",
-      "agent_version", "hostname", "logged_in_user", "battery_pct",
+      "agent_version", "serial_number", "manufacturer", "model", "os_name",
+      "os_version", "total_ram_gb", "total_disk_gb", "wifi_ssid",
+      "mac_address", "local_ip", "disk_encrypted", "antivirus",
+      "hostname", "logged_in_user", "battery_pct",
       "is_charging", "disk_free_gb", "cpu_pct", "ram_pct", "idle_minutes",
       "uptime_minutes", "public_ip", "city", "lat", "lng", "reported_at",
     ],
@@ -161,7 +164,13 @@ async function monitoringCsv(supabase: Awaited<ReturnType<typeof createClient>>)
       return [
         tag(e.asset), aname(e.asset), e.platform as CsvValue,
         e.online_status as CsvValue, e.last_seen as CsvValue,
-        e.agent_version as CsvValue, h.hostname as CsvValue,
+        e.agent_version as CsvValue, e.serial_number as CsvValue,
+        e.manufacturer as CsvValue, e.model as CsvValue, e.os_name as CsvValue,
+        e.os_version as CsvValue, e.total_ram_gb as CsvValue,
+        e.total_disk_gb as CsvValue, e.wifi_ssid as CsvValue,
+        e.mac_address as CsvValue, e.local_ip as CsvValue,
+        e.disk_encrypted as CsvValue, e.antivirus as CsvValue,
+        h.hostname as CsvValue,
         h.logged_in_user as CsvValue, h.battery_pct as CsvValue,
         h.is_charging as CsvValue, h.disk_free_gb as CsvValue,
         h.cpu_pct as CsvValue, h.ram_pct as CsvValue,

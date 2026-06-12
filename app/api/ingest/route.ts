@@ -210,14 +210,57 @@ export async function POST(req: NextRequest) {
       : {}),
   });
 
+  const bool = (v: unknown): boolean | null =>
+    typeof v === "boolean" ? v : null;
+
   await admin
     .from("device_enrollments")
     .update({
       last_seen: new Date().toISOString(),
       online_status: "online",
       agent_version: str(body.agent_version),
+      // Tier 1 device facts — only overwrite when the agent reports a value,
+      // so a field the platform can't read doesn't wipe a known one.
+      ...(str(body.serial_number) != null && {
+        serial_number: str(body.serial_number),
+      }),
+      ...(str(body.manufacturer) != null && {
+        manufacturer: str(body.manufacturer),
+      }),
+      ...(str(body.model) != null && { model: str(body.model) }),
+      ...(str(body.os_name) != null && { os_name: str(body.os_name) }),
+      ...(str(body.os_version) != null && {
+        os_version: str(body.os_version),
+      }),
+      ...(num(body.total_ram_gb) != null && {
+        total_ram_gb: num(body.total_ram_gb),
+      }),
+      ...(num(body.total_disk_gb) != null && {
+        total_disk_gb: num(body.total_disk_gb),
+      }),
+      ...(str(body.mac_address) != null && {
+        mac_address: str(body.mac_address),
+      }),
+      ...(str(body.wifi_ssid) != null && { wifi_ssid: str(body.wifi_ssid) }),
+      ...(str(body.local_ip) != null && { local_ip: str(body.local_ip) }),
+      ...(bool(body.disk_encrypted) != null && {
+        disk_encrypted: bool(body.disk_encrypted),
+      }),
+      ...(str(body.antivirus) != null && { antivirus: str(body.antivirus) }),
+      ...(str(body.battery_health) != null && {
+        battery_health: str(body.battery_health),
+      }),
     })
     .eq("asset_id", assetId);
+
+  // Flag a token installed on a device whose serial doesn't match the asset.
+  const serial = str(body.serial_number);
+  if (serial) {
+    await admin.rpc("check_serial_match", {
+      p_asset_id: assetId,
+      p_serial: serial,
+    });
+  }
 
   await runDeviceAlerts(admin, assetId, body);
 

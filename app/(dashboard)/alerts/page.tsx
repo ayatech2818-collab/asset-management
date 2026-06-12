@@ -27,6 +27,7 @@ const TYPE_LABEL: Record<string, string> = {
   LOW_BATTERY: "Low battery",
   LOW_DISK: "Low disk",
   UNAUTHORIZED_USER: "Unauthorized user",
+  SERIAL_MISMATCH: "Serial mismatch",
 };
 
 export default async function AlertsPage() {

@@ -117,6 +117,20 @@ export interface DeviceEnrollment {
   last_seen: string | null;
   online_status: OnlineStatus;
   is_active: boolean;
+  // Tier 1 device facts (refreshed each heartbeat).
+  serial_number: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  os_name: string | null;
+  os_version: string | null;
+  total_ram_gb: number | null;
+  total_disk_gb: number | null;
+  mac_address: string | null;
+  wifi_ssid: string | null;
+  local_ip: string | null;
+  disk_encrypted: boolean | null;
+  antivirus: string | null;
+  battery_health: string | null;
 }
 
 export interface Heartbeat {

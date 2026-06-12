@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, ExternalLink, Clock } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  ExternalLink,
+  Clock,
+  ShieldCheck,
+  ShieldAlert,
+  Cpu,
+} from "lucide-react";
 import { requireStaff } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { ActivityChart, type ActivityPoint } from "@/components/monitoring/ActivityChart";
@@ -19,6 +27,68 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
       <div className="text-xs text-slate-400">{label}</div>
       <div className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
         {value ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: "warn";
+}) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-slate-400">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 break-words text-sm ${
+          tone === "warn"
+            ? "font-medium text-amber-600 dark:text-amber-400"
+            : "text-slate-900 dark:text-slate-100"
+        }`}
+      >
+        {value ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+// Serial reported by the device, with a match check against the registry.
+function DetailWithMatch({
+  label,
+  reported,
+  registered,
+}: {
+  label: string;
+  reported: string | null;
+  registered: string | null;
+}) {
+  const norm = (s: string | null) => s?.trim().toLowerCase() ?? "";
+  const matches =
+    reported && registered ? norm(reported) === norm(registered) : null;
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-slate-400">
+        {label}
+      </div>
+      <div className="mt-0.5 flex items-center gap-1.5 break-words text-sm text-slate-900 dark:text-slate-100">
+        {reported ?? "—"}
+        {matches === true && (
+          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+            <ShieldCheck className="h-3.5 w-3.5" /> matches
+          </span>
+        )}
+        {matches === false && (
+          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-red-600 dark:text-red-400">
+            <ShieldAlert className="h-3.5 w-3.5" /> mismatch
+          </span>
+        )}
       </div>
     </div>
   );
@@ -184,6 +254,55 @@ export default async function DeviceDetailPage({
               }
             />
             <Stat label="Public IP" value={latest.public_ip} />
+          </div>
+
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <Cpu className="h-4 w-4 text-slate-400" />
+              Device details
+            </h2>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+              <DetailWithMatch
+                label="Serial number"
+                reported={enrollment.serial_number}
+                registered={asset.serial_number}
+              />
+              <Detail label="Manufacturer" value={enrollment.manufacturer} />
+              <Detail label="Model" value={enrollment.model} />
+              <Detail
+                label="Operating system"
+                value={
+                  enrollment.os_name
+                    ? `${enrollment.os_name}${enrollment.os_version ? ` · ${enrollment.os_version}` : ""}`
+                    : null
+                }
+              />
+              <Detail
+                label="Total RAM"
+                value={enrollment.total_ram_gb != null ? `${enrollment.total_ram_gb} GB` : null}
+              />
+              <Detail
+                label="Total storage"
+                value={enrollment.total_disk_gb != null ? `${enrollment.total_disk_gb} GB` : null}
+              />
+              <Detail label="Wi-Fi network" value={enrollment.wifi_ssid} />
+              <Detail label="MAC address" value={enrollment.mac_address} />
+              <Detail label="Local IP" value={enrollment.local_ip} />
+              <Detail
+                label="Disk encryption"
+                value={
+                  enrollment.disk_encrypted == null
+                    ? null
+                    : enrollment.disk_encrypted
+                      ? "On"
+                      : "Off"
+                }
+                tone={
+                  enrollment.disk_encrypted === false ? "warn" : undefined
+                }
+              />
+              <Detail label="Antivirus" value={enrollment.antivirus} />
+            </div>
           </div>
 
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

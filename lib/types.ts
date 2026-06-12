@@ -138,6 +138,8 @@ export interface Heartbeat {
   disk_free_gb: number | null;
   cpu_pct: number | null;
   ram_pct: number | null;
+  screen_on_minutes: number | null;
+  unlock_count: number | null;
 }
 
 // Role helpers — kept here (not in the server-only DAL) so client components

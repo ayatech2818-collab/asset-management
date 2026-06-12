@@ -65,6 +65,19 @@ export default async function DeviceDetailPage({
   const sessions = computeSessions(heartbeats, cadence);
   const days = dailyUsage(sessions);
 
+  // Exact usage (phones with Usage access granted): unlock counts and real
+  // screen-on minutes reported per heartbeat window.
+  const exactByDay = new Map<string, { unlocks: number; screenOn: number }>();
+  for (const h of heartbeats) {
+    if (h.unlock_count == null && h.screen_on_minutes == null) continue;
+    const key = new Date(h.reported_at).toDateString();
+    const d = exactByDay.get(key) ?? { unlocks: 0, screenOn: 0 };
+    d.unlocks += h.unlock_count ?? 0;
+    d.screenOn += h.screen_on_minutes ?? 0;
+    exactByDay.set(key, d);
+  }
+  const hasExact = exactByDay.size > 0;
+
   // Oldest → newest for the chart (most recent 100 beats).
   const chart: ActivityPoint[] = [...heartbeats.slice(0, 100)]
     .reverse()
@@ -188,15 +201,23 @@ export default async function DeviceDetailPage({
               )}
               {latest.lat != null && latest.lng != null && (
                 <a
-                  href={`https://www.openstreetmap.org/?mlat=${latest.lat}&mlon=${latest.lng}#map=13/${latest.lat}/${latest.lng}`}
+                  href={`https://www.openstreetmap.org/?mlat=${latest.lat}&mlon=${latest.lng}#map=16/${latest.lat}/${latest.lng}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-2 inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-400"
                 >
-                  view map <ExternalLink className="h-3 w-3" />
+                  open full map <ExternalLink className="h-3 w-3" />
                 </a>
               )}
             </div>
+            {latest.lat != null && latest.lng != null && (
+              <iframe
+                title="Device location"
+                loading="lazy"
+                className="mt-3 h-64 w-full rounded-lg border border-slate-200 dark:border-slate-800"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${latest.lng - 0.02}%2C${latest.lat - 0.012}%2C${latest.lng + 0.02}%2C${latest.lat + 0.012}&layer=mapnik&marker=${latest.lat}%2C${latest.lng}`}
+              />
+            )}
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -217,31 +238,48 @@ export default async function DeviceDetailPage({
                     <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                       <th className="pb-2 font-medium">Day</th>
                       <th className="pb-2 text-right font-medium">Times used</th>
+                      {hasExact && (
+                        <th className="pb-2 text-right font-medium">Unlocks</th>
+                      )}
                       <th className="pb-2 text-right font-medium">Total time</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {days.map((d) => (
-                      <tr
-                        key={d.label}
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        <td className="py-2 text-slate-700 dark:text-slate-300">
-                          {d.label}
-                        </td>
-                        <td className="py-2 text-right text-slate-500">
-                          {d.sessions}
-                        </td>
-                        <td className="py-2 text-right text-slate-900 dark:text-slate-100">
-                          {fmtMinutes(d.activeMinutes)}
-                        </td>
-                      </tr>
-                    ))}
+                    {days.map((d) => {
+                      const exact = exactByDay.get(d.key);
+                      return (
+                        <tr
+                          key={d.key}
+                          className="border-t border-slate-100 dark:border-slate-800"
+                        >
+                          <td className="py-2 text-slate-700 dark:text-slate-300">
+                            {d.label}
+                          </td>
+                          <td className="py-2 text-right text-slate-500">
+                            {d.sessions}
+                          </td>
+                          {hasExact && (
+                            <td className="py-2 text-right text-slate-500">
+                              {exact ? exact.unlocks : "—"}
+                            </td>
+                          )}
+                          <td className="py-2 text-right text-slate-900 dark:text-slate-100">
+                            {fmtMinutes(
+                              exact && exact.screenOn > 0
+                                ? exact.screenOn
+                                : d.activeMinutes,
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
               <p className="mt-3 text-xs text-slate-400">
-                Resolution: {cadence} min (the agent&apos;s reporting interval).
+                {hasExact
+                  ? "Unlocks and screen time are exact (reported by the device)."
+                  : `Resolution: ${cadence} min (the agent's reporting interval). Phones report exact unlocks once "usage access" is allowed in the app.`}
               </p>
             </div>
 

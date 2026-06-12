@@ -57,6 +57,14 @@
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:text="@string/battery_opt" />
 
+        <Button
+            android:id="@+id/usageButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:text="@string/usage_access" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -6,6 +6,7 @@
     <string name="save_start">Save &amp; start monitoring</string>
     <string name="send_now">Send heartbeat now</string>
     <string name="battery_opt">Allow background running (battery)</string>
+    <string name="usage_access">Allow usage tracking (screen time + unlocks)</string>
     <string name="status_idle">Not configured yet. Paste the server URL and the device token, then tap Save.</string>
     <string name="privacy_note">This company-owned device reports its status (battery, storage, approximate location) to the asset management server every 15 minutes. No messages, photos, or personal data are collected.</string>
 </resources>

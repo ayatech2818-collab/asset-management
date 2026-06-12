@@ -57,6 +57,17 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveAndStart() }
         findViewById<Button>(R.id.sendNowButton).setOnClickListener { sendNow() }
         findViewById<Button>(R.id.batteryButton).setOnClickListener { requestBatteryExemption() }
+        findViewById<Button>(R.id.usageButton).setOnClickListener { requestUsageAccess() }
+    }
+
+    private fun requestUsageAccess() {
+        if (Telemetry.hasUsageAccess(this)) {
+            Toast.makeText(this, "Usage tracking already allowed", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // System list of apps; the user taps Asset Agent and enables access.
+        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        Toast.makeText(this, "Find \"Asset Agent\" and allow usage access", Toast.LENGTH_LONG).show()
     }
 
     override fun onResume() {

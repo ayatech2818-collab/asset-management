@@ -9,6 +9,7 @@ import type { Heartbeat } from "./types";
 export type UsageSession = { start: Date; end: Date; minutes: number };
 
 export type DayUsage = {
+  key: string;
   label: string;
   sessions: number;
   activeMinutes: number;
@@ -50,6 +51,7 @@ export function dailyUsage(sessions: UsageSession[]): DayUsage[] {
   for (const s of sessions) {
     const key = s.start.toDateString();
     const day = byDay.get(key) ?? {
+      key,
       label: s.start.toLocaleDateString([], {
         weekday: "short",
         day: "numeric",

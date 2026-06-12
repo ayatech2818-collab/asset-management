@@ -2,6 +2,9 @@ package com.ayatech.assetagent
 
 import android.Manifest
 import android.app.ActivityManager
+import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +14,7 @@ import android.location.LocationManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.Process
 import android.os.StatFs
 import android.os.SystemClock
 import android.provider.Settings
@@ -28,7 +32,7 @@ object Telemetry {
     suspend fun collect(ctx: Context, token: String): JSONObject {
         val json = JSONObject()
         json.put("device_token", token)
-        json.put("agent_version", "android-1.0.2")
+        json.put("agent_version", "android-1.0.3")
         json.put("hostname", deviceName(ctx))
 
         // Each collector is independent: a failing sensor must never stop the
@@ -38,6 +42,7 @@ object Telemetry {
         runCatching { ram(ctx, json) }
         runCatching { json.put("uptime_minutes", (SystemClock.elapsedRealtime() / 60000L).toInt()) }
         runCatching { idle(ctx, json) }
+        runCatching { usageStats(ctx, json) }
         runCatching {
             val loc = bestLocation(ctx)
             if (loc != null) {
@@ -107,6 +112,59 @@ object Telemetry {
             val last = prefs.getLong(Prefs.KEY_LAST_ACTIVE_MS, 0L)
             if (last in 1..now) json.put("idle_minutes", ((now - last) / 60000L).toInt())
         }
+    }
+
+    fun hasUsageAccess(ctx: Context): Boolean {
+        val appOps = ctx.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        @Suppress("DEPRECATION")
+        val mode = appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName,
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    // Exact usage since the previous heartbeat, from the system event log:
+    // number of unlocks and real screen-on minutes. Requires the one-time
+    // "Usage access" grant (Settings > Special app access); skipped without it.
+    private fun usageStats(ctx: Context, json: JSONObject) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        if (!hasUsageAccess(ctx)) return
+
+        val prefs = Prefs.get(ctx)
+        val now = System.currentTimeMillis()
+        val since = prefs.getLong(Prefs.KEY_USAGE_SINCE, now - 15 * 60_000L)
+            .coerceIn(now - 24 * 3_600_000L, now)
+
+        val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val events = usm.queryEvents(since, now)
+        var unlocks = 0
+        var screenOnMs = 0L
+        var lastOn = -1L
+        val e = UsageEvents.Event()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(e)
+            when (e.eventType) {
+                UsageEvents.Event.KEYGUARD_HIDDEN -> unlocks++
+                UsageEvents.Event.SCREEN_INTERACTIVE -> lastOn = e.timeStamp
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
+                    if (lastOn >= 0) {
+                        screenOnMs += e.timeStamp - lastOn
+                        lastOn = -1L
+                    }
+                }
+            }
+        }
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (lastOn >= 0) {
+            screenOnMs += now - lastOn // screen still on
+        } else if (screenOnMs == 0L && unlocks == 0 && pm.isInteractive) {
+            screenOnMs = now - since // on for the whole window, no edge events
+        }
+
+        val windowMin = ((now - since) / 60_000L).toInt()
+        json.put("unlock_count", unlocks)
+        json.put("screen_on_minutes", ((screenOnMs / 60_000L).toInt()).coerceAtMost(windowMin))
+        prefs.edit().putLong(Prefs.KEY_USAGE_SINCE, now).apply()
     }
 
     private fun hasLocationPermission(ctx: Context): Boolean =

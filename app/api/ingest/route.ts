@@ -47,7 +47,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&zoom=10&accept-language=en`,
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&zoom=14&accept-language=en`,
       {
         signal: ctrl.signal,
         headers: { "User-Agent": "AssetHub/1.0 (ayatechai@gmail.com)" },
@@ -57,8 +57,11 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
     if (!res.ok) return null;
     const j = (await res.json()) as { address?: Record<string, string> };
     const a = j.address ?? {};
-    const place = a.city ?? a.town ?? a.village ?? a.county ?? a.state_district;
-    const label = [place, a.state, a.country].filter(Boolean).join(", ");
+    // Locality-level label: neighbourhood/suburb first, then the city.
+    const locality = a.neighbourhood ?? a.suburb ?? a.quarter ?? a.hamlet;
+    const place =
+      a.city ?? a.town ?? a.village ?? a.county ?? a.state_district;
+    const label = [locality, place, a.state].filter(Boolean).join(", ");
     if (label) geoLabelCache.set(key, label);
     return label || null;
   } catch {
@@ -197,6 +200,14 @@ export async function POST(req: NextRequest) {
     disk_free_gb: num(body.disk_free_gb),
     cpu_pct: num(body.cpu_pct),
     ram_pct: num(body.ram_pct),
+    // Only included when the agent sends them, so heartbeats keep working
+    // even before migration 0006 adds the columns.
+    ...(num(body.screen_on_minutes) != null
+      ? { screen_on_minutes: num(body.screen_on_minutes) }
+      : {}),
+    ...(num(body.unlock_count) != null
+      ? { unlock_count: num(body.unlock_count) }
+      : {}),
   });
 
   await admin

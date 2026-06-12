@@ -33,6 +33,39 @@ function isPrivate(ip: string | null): boolean {
   );
 }
 
+// Reverse geocoding for device-supplied coordinates (OpenStreetMap Nominatim,
+// free). The IP-derived city can be a different town entirely (ISP exit node),
+// so when we have real coordinates the label must come from them. Cached per
+// ~1 km grid cell per server instance.
+const geoLabelCache = new Map<string, string>();
+
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  const cached = geoLabelCache.get(key);
+  if (cached) return cached;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&zoom=10&accept-language=en`,
+      {
+        signal: ctrl.signal,
+        headers: { "User-Agent": "AssetHub/1.0 (ayatechai@gmail.com)" },
+      },
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const j = (await res.json()) as { address?: Record<string, string> };
+    const a = j.address ?? {};
+    const place = a.city ?? a.town ?? a.village ?? a.county ?? a.state_district;
+    const label = [place, a.state, a.country].filter(Boolean).join(", ");
+    if (label) geoLabelCache.set(key, label);
+    return label || null;
+  } catch {
+    return null;
+  }
+}
+
 // Free, no-key IP geolocation (city accuracy). Best-effort: never blocks ingest.
 async function geolocate(ip: string | null) {
   if (isPrivate(ip)) return null;
@@ -137,11 +170,14 @@ export async function POST(req: NextRequest) {
       city = geo.city;
       loc_source = "ip";
     }
-  } else {
-    // Device sent precise coordinates — keep them, but still resolve a
-    // human-readable city label from the IP for the dashboard.
-    const geo = await geolocate(ip);
-    if (geo) city = geo.city;
+  } else if (lng != null) {
+    // Device sent precise coordinates — label them by reverse geocoding,
+    // falling back to the (less accurate) IP city only if that fails.
+    city = await reverseGeocode(lat, lng);
+    if (!city) {
+      const geo = await geolocate(ip);
+      if (geo) city = geo.city;
+    }
   }
 
   await admin.from("heartbeats").insert({

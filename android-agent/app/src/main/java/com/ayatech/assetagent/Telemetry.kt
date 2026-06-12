@@ -28,7 +28,7 @@ object Telemetry {
     suspend fun collect(ctx: Context, token: String): JSONObject {
         val json = JSONObject()
         json.put("device_token", token)
-        json.put("agent_version", "android-1.0.0")
+        json.put("agent_version", "android-1.0.2")
         json.put("hostname", deviceName(ctx))
 
         // Each collector is independent: a failing sensor must never stop the
@@ -115,7 +115,8 @@ object Telemetry {
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
 
-    // Fresh network-provider fix when possible (10 s budget), otherwise the
+    // Fresh fix from the best available provider — fused (Android 12+), then
+    // network, then real GPS (longer budget; needs sky view) — otherwise the
     // most recent last-known fix from any provider. Without permission this
     // returns null and the server falls back to IP-based city location.
     private suspend fun bestLocation(ctx: Context): Location? {
@@ -123,15 +124,19 @@ object Telemetry {
         val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val provider = when {
-                runCatching { lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) }
-                    .getOrDefault(false) -> LocationManager.NETWORK_PROVIDER
-                runCatching { lm.isProviderEnabled(LocationManager.GPS_PROVIDER) }
-                    .getOrDefault(false) -> LocationManager.GPS_PROVIDER
-                else -> null
+            val providers = buildList {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    add(LocationManager.FUSED_PROVIDER)
+                }
+                add(LocationManager.NETWORK_PROVIDER)
+                add(LocationManager.GPS_PROVIDER)
+            }.filter { p ->
+                runCatching { lm.isProviderEnabled(p) }.getOrDefault(false)
             }
-            if (provider != null) {
-                val fresh = withTimeoutOrNull(10_000) {
+
+            for (provider in providers) {
+                val budget = if (provider == LocationManager.GPS_PROVIDER) 25_000L else 10_000L
+                val fresh = withTimeoutOrNull(budget) {
                     suspendCancellableCoroutine<Location?> { cont ->
                         try {
                             lm.getCurrentLocation(provider, null, ctx.mainExecutor) { loc ->

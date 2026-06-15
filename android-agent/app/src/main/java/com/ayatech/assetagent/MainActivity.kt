@@ -1,6 +1,7 @@
 package com.ayatech.assetagent
 
 import android.Manifest
+import android.app.admin.DevicePolicyManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -44,6 +45,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // While the agent is locked, the config screen is reachable only
+        // through the lock screen. Anything else (direct launch, recents)
+        // re-gates so the live lock check runs first.
+        if (Prefs.isConfigured(this) &&
+            Prefs.isLocked(this) &&
+            !intent.getBooleanExtra(EXTRA_UNLOCKED, false)
+        ) {
+            startActivity(Intent(this, LockActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_main)
 
         serverInput = findViewById(R.id.serverInput)
@@ -58,6 +72,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.sendNowButton).setOnClickListener { sendNow() }
         findViewById<Button>(R.id.batteryButton).setOnClickListener { requestBatteryExemption() }
         findViewById<Button>(R.id.usageButton).setOnClickListener { requestUsageAccess() }
+        findViewById<Button>(R.id.protectButton).setOnClickListener { toggleUninstallProtection() }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Leaving via Home/Recents ends this session, so the next entry goes
+        // back through the lock screen and re-checks the current lock state.
+        if (Prefs.isConfigured(this)) finish()
     }
 
     private fun requestUsageAccess() {
@@ -73,6 +95,35 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        refreshProtectButton()
+    }
+
+    // Device Admin = uninstall protection. While active, Android won't let the
+    // app be uninstalled until staff deactivate it from this (locked) screen.
+    private fun toggleUninstallProtection() {
+        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = AgentDeviceAdminReceiver.component(this)
+        if (dpm.isAdminActive(admin)) {
+            dpm.removeActiveAdmin(admin)
+            Toast.makeText(this, R.string.protect_disabled, Toast.LENGTH_SHORT).show()
+            refreshProtectButton()
+        } else {
+            startActivity(
+                Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                    .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
+                    .putExtra(
+                        DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                        getString(R.string.protect_explanation),
+                    ),
+            )
+        }
+    }
+
+    private fun refreshProtectButton() {
+        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val active = dpm.isAdminActive(AgentDeviceAdminReceiver.component(this))
+        findViewById<Button>(R.id.protectButton).text =
+            getString(if (active) R.string.protect_off else R.string.protect_on)
     }
 
     private fun refreshStatus() {
@@ -165,5 +216,11 @@ class MainActivity : AppCompatActivity() {
                 Uri.parse("package:$packageName"),
             ),
         )
+    }
+
+    companion object {
+        // Set by LockActivity after a successful unlock (or for an unconfigured
+        // fresh install); MainActivity refuses to open without it once locked.
+        const val EXTRA_UNLOCKED = "unlocked"
     }
 }

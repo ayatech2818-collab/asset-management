@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.AssetAgent" parent="Theme.Material3.DayNight">
-        <item name="colorPrimary">#4F46E5</item>
+        <item name="colorPrimary">#E60023</item>
     </style>
 </resources>

@@ -23,13 +23,32 @@
         android:usesCleartextTraffic="true"
         android:allowBackup="false">
 
+        <!-- Launcher is the lock screen; it forwards to MainActivity once
+             unlocked (or immediately when no lock is configured yet). -->
         <activity
-            android:name=".MainActivity"
+            android:name=".LockActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <!-- Device administrator: blocks uninstall while active. -->
+        <receiver
+            android:name=".AgentDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

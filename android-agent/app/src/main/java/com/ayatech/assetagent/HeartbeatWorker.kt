@@ -37,10 +37,17 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) :
                 conn.doOutput = true
                 conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
                 val code = conn.responseCode
+                val responseBody =
+                    if (code in 200..299) {
+                        conn.inputStream.bufferedReader().use { it.readText() }
+                    } else {
+                        ""
+                    }
                 conn.disconnect()
 
                 when {
                     code in 200..299 -> {
+                        cacheLockState(prefs, responseBody)
                         prefs.edit().putString(Prefs.KEY_LAST_RESULT, "Sent OK · $stamp").apply()
                         Result.success()
                     }
@@ -73,6 +80,25 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) :
                 )
                 .apply()
             Result.retry()
+        }
+    }
+
+    // The server returns the current admin lock state on every heartbeat.
+    // Caching it keeps the device's lock in sync even between app opens.
+    private fun cacheLockState(
+        prefs: android.content.SharedPreferences,
+        body: String,
+    ) {
+        if (body.isBlank()) return
+        try {
+            val json = org.json.JSONObject(body)
+            if (json.has("locked")) {
+                prefs.edit()
+                    .putBoolean(Prefs.KEY_AGENT_LOCKED, json.optBoolean("locked", false))
+                    .apply()
+            }
+        } catch (_: Exception) {
+            // Older server without this field — leave any cached state intact.
         }
     }
 

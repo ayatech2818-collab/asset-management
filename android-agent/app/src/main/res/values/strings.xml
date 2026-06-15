@@ -9,4 +9,16 @@
     <string name="usage_access">Allow usage tracking (screen time + unlocks)</string>
     <string name="status_idle">Not configured yet. Paste the server URL and the device token, then tap Save.</string>
     <string name="privacy_note">This company-owned device reports its status (battery, storage, approximate location) to the asset management server every 15 minutes. No messages, photos, or personal data are collected.</string>
+
+    <!-- Lock screen -->
+    <string name="lock_checking">Checking…</string>
+    <string name="lock_locked_msg">This device is locked by your administrator. Ask an administrator to unlock it from the dashboard.</string>
+    <string name="retry">Retry</string>
+
+    <!-- Uninstall protection (Device Admin) -->
+    <string name="protect_on">Enable uninstall protection</string>
+    <string name="protect_off">Disable uninstall protection</string>
+    <string name="protect_explanation">This lets the administrator stop the monitoring app from being removed from this company device.</string>
+    <string name="protect_enabled">Uninstall protection is ON.</string>
+    <string name="protect_disabled">Uninstall protection is OFF.</string>
 </resources>

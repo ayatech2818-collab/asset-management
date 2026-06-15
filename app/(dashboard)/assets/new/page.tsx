@@ -16,7 +16,7 @@ export default async function NewAssetPage() {
         <ArrowLeft className="h-4 w-4" />
         Back to assets
       </Link>
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+      <h1 className="mb-6 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         New asset
       </h1>
       <AssetForm action={createAsset} submitLabel="Create asset" />

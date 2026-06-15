@@ -22,6 +22,9 @@ only screen says exactly what it reports.
 
 ## Install on each phone (~3 minutes)
 
+> Do the install **before** handing the phone to the employee, while the agent
+> is still unlocked (see "Locking the agent" below).
+
 1. In the dashboard: open the asset → **Device monitoring** → platform
    **Android** → **Enroll device**. Copy the device token.
 2. Copy `app-debug.apk` to the phone (USB, or any file share) and open it.
@@ -33,9 +36,35 @@ only screen says exactly what it reports.
 5. Tap **"Allow background running (battery)"** and accept, so Android
    doesn't kill the 15-minute schedule. On aggressive OEMs (Xiaomi, Oppo,
    Vivo, Realme) also set the app to "No restrictions" in battery settings.
+6. Tap **"Enable uninstall protection"** and confirm the device-admin prompt so
+   the employee can't remove the app.
 
 The phone appears in **Monitoring** within a minute (the save fires an
 immediate test heartbeat) and reports every ~15 minutes after that.
+
+## Locking the agent (admin control)
+
+The agent has a simple **Lock / Unlock switch** controlled from the dashboard —
+no passwords to manage. **Locked** → the employee can't open the app, change the
+server/token, or stop monitoring. **Unlocked** → the app opens freely so staff
+can make changes. Monitoring keeps running in the background either way.
+
+1. Do the full install + permission setup above **while the agent is unlocked**
+   (devices enroll unlocked so setup is smooth).
+2. When you're done, in the dashboard open **Monitoring → (the device) → Agent
+   control (mobile)** and tap **Lock agent**. Hand the phone to the employee.
+   From then on, opening **Asset Agent** just shows a "locked by your
+   administrator" screen.
+3. To manage the device later, tap **Unlock agent** in that same dashboard
+   panel, then open the app — it checks the server on launch, so the unlock
+   takes effect within seconds. Make your changes, then **Lock agent** again.
+
+The lock state also rides down on the regular heartbeat, so it stays in sync
+even between app opens (within ~15 min).
+
+**Uninstall protection**: while the device-admin is active the app cannot be
+uninstalled. To remove the app, unlock it from the dashboard, open it, tap
+**"Disable uninstall protection"**, then uninstall.
 
 ## Notes
 

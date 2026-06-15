@@ -90,6 +90,20 @@ export function EmployeeEditForm({ profile }: { profile: Profile }) {
             className={input}
           />
         </div>
+        <div>
+          <label htmlFor="whatsapp" className={label}>
+            WhatsApp number
+          </label>
+          <input
+            id="whatsapp"
+            name="whatsapp"
+            type="tel"
+            inputMode="tel"
+            placeholder="+91 98765 43210"
+            defaultValue={profile.whatsapp ?? ""}
+            className={input}
+          />
+        </div>
       </div>
 
       <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">

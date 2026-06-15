@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (toggle sets `.dark` on <html>). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Pinterest-inspired re-skin (DESIGN-pinterest.md).
+
+  Rather than rewrite every utility class across the app, we remap the design
+  tokens the app already uses:
+    • the `indigo` scale  → Pinterest brand red (#e60023) and its states
+    • the `slate` scale    → the warm-cream neutral palette
+    • the radius scale     → the 16px / 32px / pill vocabulary
+  Existing classes like `bg-slate-50`, `text-indigo-600`, `rounded-xl` therefore
+  pick up the new look with no per-component churn.
+*/
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Radius — 16px dominant, 32px for big cards/modals, pill for chips. */
+  --radius-lg: 1rem; /* 16px — buttons, inputs, nav links */
+  --radius-xl: 1rem; /* 16px — cards / panels */
+  --radius-2xl: 2rem; /* 32px — large cards / modals */
+
+  /* Brand red — replaces every indigo accent (CTAs, active nav, focus). */
+  --color-indigo-50: #fdeaec;
+  --color-indigo-100: #fbd5da;
+  --color-indigo-200: #f7c5cb; /* focus ring (light) */
+  --color-indigo-300: #ff8a99;
+  --color-indigo-400: #ff5a72; /* dark-mode accent text */
+  --color-indigo-500: #e60023; /* focus border */
+  --color-indigo-600: #e60023; /* brand primary */
+  --color-indigo-700: #cc001f; /* pressed / hover */
+  --color-indigo-800: #a8001a;
+  --color-indigo-900: #7a0014;
+  --color-indigo-950: #3d0009; /* dark-mode active-nav fill */
+
+  /* Warm-cream neutrals — replace the cool slate scale everywhere. */
+  --color-slate-50: #fbfbf9; /* page wash */
+  --color-slate-100: #f6f6f3; /* surface-card / hover */
+  --color-slate-200: #e5e5e0; /* hairline-soft / borders */
+  --color-slate-300: #dadad3; /* hairline / dashed borders */
+  --color-slate-400: #91918c; /* ash — icons, placeholders */
+  --color-slate-500: #62625b; /* mute — secondary text */
+  --color-slate-600: #4b4b45; /* body */
+  --color-slate-700: #33332e; /* body strong */
+  --color-slate-800: #2a2a26; /* dark borders / dark surface */
+  --color-slate-900: #1c1c19; /* headings (warm near-black) */
+  --color-slate-950: #131310; /* dark-mode page background */
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbfbf9;
+  --foreground: #1c1c19;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --background: #131310;
+  --foreground: #f6f6f3;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Pinterest's confident display tracking: tighten large headings. */
+@layer base {
+  h1,
+  h2 {
+    letter-spacing: -0.02em;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }

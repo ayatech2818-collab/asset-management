@@ -11,6 +11,7 @@ import {
 } from "@/components/transfers/CustodyPanel";
 import { TransferResponseButtons } from "@/components/transfers/TransferResponseButtons";
 import { EnrollPanel } from "@/components/monitoring/EnrollPanel";
+import { AgentControlPanel } from "@/components/monitoring/AgentControlPanel";
 import type {
   Asset,
   AssetStatus,
@@ -116,7 +117,7 @@ export default async function AssetDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               {asset.name}
             </h1>
             <StatusBadge status={asset.status as AssetStatus} />
@@ -221,6 +222,11 @@ export default async function AssetDetailPage({
           <EnrollPanel assetId={asset.id} enrollment={enrollment} />
         </div>
       )}
+
+      {enrollment &&
+        (enrollment.platform === "android" || enrollment.platform === "ios") && (
+          <AgentControlPanel assetId={asset.id} locked={enrollment.agent_locked} />
+        )}
 
       <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">

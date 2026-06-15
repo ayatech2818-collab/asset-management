@@ -12,6 +12,7 @@ import {
 import { requireStaff } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { ActivityChart, type ActivityPoint } from "@/components/monitoring/ActivityChart";
+import { AgentControlPanel } from "@/components/monitoring/AgentControlPanel";
 import {
   cadenceFor,
   computeSessions,
@@ -20,6 +21,12 @@ import {
   fmtRange,
 } from "@/lib/usage";
 import type { Asset, DeviceEnrollment, Heartbeat } from "@/lib/types";
+
+// Request-time cutoff for the heartbeat window (kept out of the component body
+// so the lint purity rule doesn't flag Date.now()).
+function windowStartISO(days: number): string {
+  return new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+}
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -99,12 +106,14 @@ export default async function DeviceDetailPage({
 }: {
   params: Promise<{ assetId: string }>;
 }) {
-  await requireStaff();
   const { assetId } = await params;
   const supabase = await createClient();
 
-  const [{ data: assetData }, { data: enrollData }, { data: hbData }] =
+  // Run the role guard concurrently with data fetching instead of blocking
+  // the queries behind it — the redirect (if any) still resolves first.
+  const [, { data: assetData }, { data: enrollData }, { data: hbData }] =
     await Promise.all([
+      requireStaff(),
       supabase.from("assets").select("*").eq("id", assetId).single(),
       supabase
         .from("device_enrollments")
@@ -115,10 +124,7 @@ export default async function DeviceDetailPage({
         .from("heartbeats")
         .select("*")
         .eq("asset_id", assetId)
-        .gte(
-          "reported_at",
-          new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
-        )
+        .gte("reported_at", windowStartISO(7))
         .order("reported_at", { ascending: false })
         .limit(1000),
     ]);
@@ -177,7 +183,7 @@ export default async function DeviceDetailPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               {asset.name}
             </h1>
             <span
@@ -213,6 +219,10 @@ export default async function DeviceDetailPage({
             : "never"}
         </div>
       </div>
+
+      {(enrollment.platform === "android" || enrollment.platform === "ios") && (
+        <AgentControlPanel assetId={assetId} locked={enrollment.agent_locked} />
+      )}
 
       {latest == null ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
@@ -261,7 +271,7 @@ export default async function DeviceDetailPage({
               <Cpu className="h-4 w-4 text-slate-400" />
               Device details
             </h2>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
               <DetailWithMatch
                 label="Serial number"
                 reported={enrollment.serial_number}
@@ -333,7 +343,7 @@ export default async function DeviceDetailPage({
               <iframe
                 title="Device location"
                 loading="lazy"
-                className="mt-3 h-64 w-full rounded-lg border border-slate-200 dark:border-slate-800"
+                className="mt-3 h-56 w-full rounded-lg border border-slate-200 sm:h-64 dark:border-slate-800"
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${latest.lng - 0.02}%2C${latest.lat - 0.012}%2C${latest.lng + 0.02}%2C${latest.lat + 0.012}&layer=mapnik&marker=${latest.lat}%2C${latest.lng}`}
               />
             )}

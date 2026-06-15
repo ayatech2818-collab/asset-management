@@ -66,6 +66,7 @@ export function AssetForm({
             id="asset_tag"
             name="asset_tag"
             required
+            maxLength={50}
             defaultValue={asset?.asset_tag ?? ""}
             placeholder="AYT-LT-001"
             className={input}
@@ -79,6 +80,7 @@ export function AssetForm({
             id="name"
             name="name"
             required
+            maxLength={120}
             defaultValue={asset?.name ?? ""}
             placeholder="Dell Latitude 5440"
             className={input}
@@ -251,6 +253,7 @@ export function AssetForm({
           id="notes"
           name="notes"
           rows={3}
+          maxLength={2000}
           defaultValue={asset?.notes ?? ""}
           className={input}
         />

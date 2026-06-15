@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Device heartbeat endpoint. Agents authenticate with their device_token
@@ -92,23 +92,54 @@ async function geolocate(ip: string | null) {
   }
 }
 
+// Alert thresholds are admin-configurable (alert_settings, migration 0009).
+// Cached for 60s so heartbeats don't read them every time; falls back to the
+// previous hard-coded defaults if the table hasn't been migrated yet.
+let thresholdCache: { battery: number; disk: number; at: number } | null = null;
+
+async function getThresholds(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<{ battery: number; disk: number }> {
+  if (thresholdCache && Date.now() - thresholdCache.at < 60_000) {
+    return { battery: thresholdCache.battery, disk: thresholdCache.disk };
+  }
+  let battery = 15;
+  let disk = 10;
+  try {
+    const { data } = await admin
+      .from("alert_settings")
+      .select("low_battery_pct, low_disk_gb")
+      .eq("id", 1)
+      .maybeSingle();
+    if (data) {
+      battery = (data.low_battery_pct as number) ?? 15;
+      disk = Number(data.low_disk_gb ?? 10);
+    }
+  } catch {
+    // table not migrated yet — keep defaults
+  }
+  thresholdCache = { battery, disk, at: Date.now() };
+  return { battery, disk };
+}
+
 async function runDeviceAlerts(
   admin: ReturnType<typeof createAdminClient>,
   assetId: string,
   body: Body,
+  thresholds: { battery: number; disk: number },
 ) {
   const checks: { type: string; severity: string; message: string }[] = [];
   const battery = num(body.battery_pct);
   const disk = num(body.disk_free_gb);
 
-  if (battery != null && battery < 15 && body.is_charging !== true) {
+  if (battery != null && battery < thresholds.battery && body.is_charging !== true) {
     checks.push({
       type: "LOW_BATTERY",
       severity: "med",
       message: `Battery low (${battery}%)`,
     });
   }
-  if (disk != null && disk < 10) {
+  if (disk != null && disk < thresholds.disk) {
     checks.push({
       type: "LOW_DISK",
       severity: "med",
@@ -146,7 +177,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: enrollment } = await admin
     .from("device_enrollments")
-    .select("asset_id, is_active")
+    .select("asset_id, is_active, agent_locked")
     .eq("device_token", token)
     .single();
 
@@ -160,55 +191,45 @@ export async function POST(req: NextRequest) {
   const assetId = enrollment.asset_id as string;
   const ip = clientIp(req, str(body.public_ip));
 
-  // Location: prefer agent GPS (phones), else server-side IP geolocation.
-  let lat = num(body.lat);
-  let lng = num(body.lng);
-  let loc_source = str(body.loc_source) ?? (lat != null ? "gps" : null);
-  let city: string | null = null;
-  if (lat == null) {
-    const geo = await geolocate(ip);
-    if (geo) {
-      lat = geo.lat;
-      lng = geo.lng;
-      city = geo.city;
-      loc_source = "ip";
-    }
-  } else if (lng != null) {
-    // Device sent precise coordinates — label them by reverse geocoding,
-    // falling back to the (less accurate) IP city only if that fails.
-    city = await reverseGeocode(lat, lng);
-    if (!city) {
-      const geo = await geolocate(ip);
-      if (geo) city = geo.city;
-    }
-  }
+  // Location from the agent payload only — no blocking network calls here.
+  // GPS coordinates (phones) are stored as-is; the human-readable city label
+  // (reverse geocoding) and IP-based fallback are resolved after the response
+  // in `after()` below, so the agent isn't held for 0.5–2s on external APIs.
+  const lat = num(body.lat);
+  const lng = num(body.lng);
+  const loc_source = str(body.loc_source) ?? (lat != null ? "gps" : null);
 
-  await admin.from("heartbeats").insert({
-    asset_id: assetId,
-    hostname: str(body.hostname),
-    logged_in_user: str(body.logged_in_user),
-    public_ip: ip,
-    lat,
-    lng,
-    city,
-    loc_accuracy_m: num(body.loc_accuracy_m),
-    loc_source,
-    idle_minutes: num(body.idle_minutes),
-    uptime_minutes: num(body.uptime_minutes),
-    battery_pct: num(body.battery_pct),
-    is_charging: typeof body.is_charging === "boolean" ? body.is_charging : null,
-    disk_free_gb: num(body.disk_free_gb),
-    cpu_pct: num(body.cpu_pct),
-    ram_pct: num(body.ram_pct),
-    // Only included when the agent sends them, so heartbeats keep working
-    // even before migration 0006 adds the columns.
-    ...(num(body.screen_on_minutes) != null
-      ? { screen_on_minutes: num(body.screen_on_minutes) }
-      : {}),
-    ...(num(body.unlock_count) != null
-      ? { unlock_count: num(body.unlock_count) }
-      : {}),
-  });
+  const { data: inserted } = await admin
+    .from("heartbeats")
+    .insert({
+      asset_id: assetId,
+      hostname: str(body.hostname),
+      logged_in_user: str(body.logged_in_user),
+      public_ip: ip,
+      lat,
+      lng,
+      city: null,
+      loc_accuracy_m: num(body.loc_accuracy_m),
+      loc_source,
+      idle_minutes: num(body.idle_minutes),
+      uptime_minutes: num(body.uptime_minutes),
+      battery_pct: num(body.battery_pct),
+      is_charging:
+        typeof body.is_charging === "boolean" ? body.is_charging : null,
+      disk_free_gb: num(body.disk_free_gb),
+      cpu_pct: num(body.cpu_pct),
+      ram_pct: num(body.ram_pct),
+      // Only included when the agent sends them, so heartbeats keep working
+      // even before migration 0006 adds the columns.
+      ...(num(body.screen_on_minutes) != null
+        ? { screen_on_minutes: num(body.screen_on_minutes) }
+        : {}),
+      ...(num(body.unlock_count) != null
+        ? { unlock_count: num(body.unlock_count) }
+        : {}),
+    })
+    .select("id")
+    .single();
 
   const bool = (v: unknown): boolean | null =>
     typeof v === "boolean" ? v : null;
@@ -262,7 +283,47 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  await runDeviceAlerts(admin, assetId, body);
+  const thresholds = await getThresholds(admin);
+  await runDeviceAlerts(admin, assetId, body, thresholds);
 
-  return NextResponse.json({ ok: true, interval_seconds: 300 });
+  // Resolve the location label without blocking the agent. For GPS beats this
+  // fills in the city; for beats with no coordinates it backfills lat/lng/city
+  // from IP geolocation. Runs after the response is sent.
+  const hbId = inserted?.id as number | undefined;
+  if (hbId != null) {
+    after(async () => {
+      let glat = lat;
+      let glng = lng;
+      let gcity: string | null = null;
+      let gsource = loc_source;
+      if (lat == null) {
+        const geo = await geolocate(ip);
+        if (geo) {
+          glat = geo.lat;
+          glng = geo.lng;
+          gcity = geo.city;
+          gsource = "ip";
+        }
+      } else if (lng != null) {
+        gcity = await reverseGeocode(lat, lng);
+        if (!gcity) {
+          const geo = await geolocate(ip);
+          if (geo) gcity = geo.city;
+        }
+      }
+      if (gcity != null || glat !== lat) {
+        await admin
+          .from("heartbeats")
+          .update({ lat: glat, lng: glng, city: gcity, loc_source: gsource })
+          .eq("id", hbId);
+      }
+    });
+  }
+
+  // Push the current lock state down so the agent caches it and gates its UI.
+  return NextResponse.json({
+    ok: true,
+    interval_seconds: 300,
+    locked: enrollment.agent_locked === true,
+  });
 }

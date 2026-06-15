@@ -136,18 +136,15 @@ async function monitoringCsv(supabase: Awaited<ReturnType<typeof createClient>>)
       .order("enrolled_at")
       .range(from, to),
   );
-  // Latest heartbeat per device (device count is small; one query each).
-  const latest = await Promise.all(
-    enrollments.map(async (e) => {
-      const { data } = await supabase
-        .from("heartbeats")
-        .select("*")
-        .eq("asset_id", e.asset_id as string)
-        .order("reported_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return (data ?? {}) as Rec;
-    }),
+  // Latest heartbeat per device — one query via the latest_heartbeats view
+  // (replaces the previous one-query-per-device N+1).
+  const hbRows = await fetchAll<Rec>((from, to) =>
+    supabase.from("latest_heartbeats").select("*").range(from, to),
+  );
+  const byAsset = new Map<string, Rec>();
+  for (const h of hbRows) byAsset.set(h.asset_id as string, h);
+  const latest = enrollments.map(
+    (e) => byAsset.get(e.asset_id as string) ?? ({} as Rec),
   );
   return toCsv(
     [

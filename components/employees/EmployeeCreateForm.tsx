@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Loader2, CheckCircle2, Copy } from "lucide-react";
 import {
   createEmployee,
@@ -49,12 +50,12 @@ export function EmployeeCreateForm() {
             </div>
           </div>
         )}
-        <a
+        <Link
           href="/employees"
           className="mt-4 inline-block text-sm font-medium text-green-700 underline dark:text-green-300"
         >
           Back to employees
-        </a>
+        </Link>
       </div>
     );
   }
@@ -109,6 +110,19 @@ export function EmployeeCreateForm() {
             Designation
           </label>
           <input id="designation" name="designation" className={input} />
+        </div>
+        <div>
+          <label htmlFor="whatsapp" className={label}>
+            WhatsApp number
+          </label>
+          <input
+            id="whatsapp"
+            name="whatsapp"
+            type="tel"
+            inputMode="tel"
+            placeholder="+91 98765 43210"
+            className={input}
+          />
         </div>
       </div>
 

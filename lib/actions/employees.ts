@@ -18,6 +18,11 @@ export type EmployeeCreateState =
 
 export type EmployeeUpdateState = { error: string } | undefined;
 
+export type EmployeeLoginState =
+  | { error: string }
+  | { success: true; email: string; password: string }
+  | undefined;
+
 export async function createEmployee(
   _prev: EmployeeCreateState,
   formData: FormData,
@@ -73,9 +78,17 @@ export async function createEmployee(
       employee_code: str("employee_code"),
       department: str("department"),
       designation: str("designation"),
+      whatsapp: str("whatsapp"),
     })
     .eq("id", created.user.id);
   if (profErr) return { error: `User created but profile update failed: ${profErr.message}` };
+
+  // 3. Store the plaintext password so an admin can re-share it later.
+  await admin.from("employee_logins").upsert({
+    profile_id: created.user.id,
+    password,
+    updated_at: new Date().toISOString(),
+  });
 
   await writeAudit(actor.id, "employee_created", "profile", created.user.id, {
     email,
@@ -124,6 +137,7 @@ export async function updateEmployee(
       employee_code: str("employee_code"),
       department: str("department"),
       designation: str("designation"),
+      whatsapp: str("whatsapp"),
       is_active,
     })
     .eq("id", profileId);
@@ -137,4 +151,68 @@ export async function updateEmployee(
 
   revalidatePath("/employees");
   redirect("/employees");
+}
+
+// Admin-only: change an employee's (or the admin's own) login email and/or
+// password. Updates Supabase Auth via the service-role client and keeps a
+// plaintext copy in employee_logins so it can be re-shared with the employee.
+export async function updateEmployeeLogin(
+  profileId: string,
+  _prev: EmployeeLoginState,
+  formData: FormData,
+): Promise<EmployeeLoginState> {
+  const actor = await getProfile();
+  if (!actor || !isAdmin(actor.role)) return { error: "Not authorized." };
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email))
+    return { error: "A valid email is required." };
+  if (password && password.length < 6)
+    return { error: "Password must be at least 6 characters." };
+
+  const admin = createAdminClient();
+
+  const updates: { email: string; password?: string } = { email };
+  if (password) updates.password = password;
+  const { error: authErr } = await admin.auth.admin.updateUserById(
+    profileId,
+    updates,
+  );
+  if (authErr) {
+    const msg = authErr.message.includes("already")
+      ? "That email is already in use."
+      : authErr.message;
+    return { error: msg };
+  }
+
+  // Keep the profile email in sync with the auth email.
+  await admin.from("profiles").update({ email }).eq("id", profileId);
+
+  // Persist the plaintext only when a new password was set; otherwise return
+  // whatever is already stored so the WhatsApp share still has it.
+  let stored = password;
+  if (password) {
+    await admin.from("employee_logins").upsert({
+      profile_id: profileId,
+      password,
+      updated_at: new Date().toISOString(),
+    });
+  } else {
+    const { data } = await admin
+      .from("employee_logins")
+      .select("password")
+      .eq("profile_id", profileId)
+      .maybeSingle();
+    stored = (data?.password as string | null) ?? "";
+  }
+
+  await writeAudit(actor.id, "employee_login_updated", "profile", profileId, {
+    email,
+    password_changed: Boolean(password),
+  });
+
+  revalidatePath(`/employees/${profileId}`);
+  return { success: true, email, password: stored };
 }

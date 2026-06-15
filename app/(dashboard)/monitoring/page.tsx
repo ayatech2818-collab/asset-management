@@ -30,36 +30,31 @@ function activity(idle: number | null): { label: string; cls: string } {
 }
 
 export default async function MonitoringPage() {
-  await requireStaff();
   const supabase = await createClient();
 
-  const { data: enrollData } = await supabase
-    .from("device_enrollments")
-    .select(
-      "*, asset:asset_id(asset_tag, name, category, custodian:current_custodian(full_name))",
-    )
-    .order("online_status", { ascending: true });
+  // Role guard runs alongside the data fetch. latest_heartbeats returns exactly
+  // one (newest) row per device via a single indexed query — no 400-row fetch
+  // or JS de-duplication.
+  const [, { data: enrollData }, { data: hbData }] = await Promise.all([
+    requireStaff(),
+    supabase
+      .from("device_enrollments")
+      .select(
+        "*, asset:asset_id(asset_tag, name, category, custodian:current_custodian(full_name))",
+      )
+      .order("online_status", { ascending: true }),
+    supabase.from("latest_heartbeats").select("*"),
+  ]);
 
   const enrollments = (enrollData ?? []) as EnrollmentRow[];
-
-  // Latest heartbeat per device (one recent query, deduped in JS).
   const latest = new Map<string, Heartbeat>();
-  if (enrollments.length > 0) {
-    const { data: hbData } = await supabase
-      .from("heartbeats")
-      .select("*")
-      .order("reported_at", { ascending: false })
-      .limit(400);
-    for (const hb of (hbData ?? []) as Heartbeat[]) {
-      if (!latest.has(hb.asset_id)) latest.set(hb.asset_id, hb);
-    }
-  }
+  for (const hb of (hbData ?? []) as Heartbeat[]) latest.set(hb.asset_id, hb);
 
   const online = enrollments.filter((e) => e.online_status === "online").length;
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         Monitoring
       </h1>
       <p className="mt-1 text-sm text-slate-500">
@@ -95,7 +90,7 @@ export default async function MonitoringPage() {
               <Link
                 key={e.id}
                 href={`/monitoring/${e.asset_id}`}
-                className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
+                className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">

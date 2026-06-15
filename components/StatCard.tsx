@@ -23,15 +23,15 @@ export function StatCard({
   return (
     <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div
-        className={`flex h-11 w-11 items-center justify-center rounded-lg ${tones[tone]}`}
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}
       >
         <Icon className="h-5 w-5" />
       </div>
-      <div>
-        <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+      <div className="min-w-0">
+        <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           {value}
         </div>
-        <div className="text-sm text-slate-500">{label}</div>
+        <div className="truncate text-sm text-slate-500">{label}</div>
       </div>
     </div>
   );

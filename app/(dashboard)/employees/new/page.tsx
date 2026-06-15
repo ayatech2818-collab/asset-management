@@ -15,7 +15,7 @@ export default async function NewEmployeePage() {
         <ArrowLeft className="h-4 w-4" />
         Back to employees
       </Link>
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+      <h1 className="mb-6 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         Add employee
       </h1>
       <EmployeeCreateForm />

@@ -59,7 +59,7 @@ export default async function AlertsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Alerts
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -123,7 +123,32 @@ export default async function AlertsPage() {
           <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
             Recently resolved
           </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          {/* Mobile: stacked cards */}
+          <ul className="space-y-3 md:hidden">
+            {resolved.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  {a.message}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                  <span className="font-mono">{a.asset?.asset_tag}</span>
+                  <span>· by {a.resolver?.full_name ?? "—"}</span>
+                  <span>
+                    ·{" "}
+                    {a.resolved_at
+                      ? new Date(a.resolved_at).toLocaleString()
+                      : "—"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block dark:border-slate-800 dark:bg-slate-900">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-800">
                 <tr>

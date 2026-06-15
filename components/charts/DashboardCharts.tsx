@@ -16,18 +16,18 @@ import {
 export type ChartDatum = { name: string; value: number };
 
 const COLORS = [
-  "#6366f1",
+  "#e60023",
   "#22c55e",
   "#f59e0b",
-  "#ef4444",
+  "#7e238b",
   "#06b6d4",
-  "#8b5cf6",
-  "#64748b",
+  "#6845ab",
+  "#91918c",
 ];
 
 export function CategoryPie({ data }: { data: ChartDatum[] }) {
   return (
-    <div className="h-64">
+    <div className="h-56 lg:h-64">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -52,7 +52,7 @@ export function CategoryPie({ data }: { data: ChartDatum[] }) {
 
 export function StatusBars({ data }: { data: ChartDatum[] }) {
   return (
-    <div className="h-64">
+    <div className="h-56 lg:h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
           <XAxis
@@ -65,7 +65,7 @@ export function StatusBars({ data }: { data: ChartDatum[] }) {
           />
           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
           <Tooltip />
-          <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="value" fill="#e60023" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

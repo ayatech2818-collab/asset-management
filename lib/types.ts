@@ -35,6 +35,7 @@ export interface Profile {
   full_name: string;
   email: string;
   phone: string | null;
+  whatsapp: string | null;
   department: string | null;
   designation: string | null;
   role: Role;
@@ -131,6 +132,10 @@ export interface DeviceEnrollment {
   disk_encrypted: boolean | null;
   antivirus: string | null;
   battery_health: string | null;
+  // Admin Lock/Unlock control for the mobile agent. Locked = the employee
+  // can't open or change the agent. Pushed to the device on the heartbeat
+  // response and checked live when the app is opened.
+  agent_locked: boolean;
 }
 
 export interface Heartbeat {

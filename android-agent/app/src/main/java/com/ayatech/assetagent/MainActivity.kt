@@ -65,7 +65,10 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
 
         val prefs = Prefs.get(this)
-        serverInput.setText(prefs.getString(Prefs.KEY_SERVER, ""))
+        // Pre-fill the production server URL so users only need to paste the
+        // token; keep any previously saved URL if one exists.
+        val savedServer = prefs.getString(Prefs.KEY_SERVER, "").orEmpty()
+        serverInput.setText(if (savedServer.isBlank()) DEFAULT_SERVER else savedServer)
         tokenInput.setText(prefs.getString(Prefs.KEY_TOKEN, ""))
 
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveAndStart() }
@@ -265,5 +268,8 @@ class MainActivity : AppCompatActivity() {
         // Set by LockActivity after a successful unlock (or for an unconfigured
         // fresh install); MainActivity refuses to open without it once locked.
         const val EXTRA_UNLOCKED = "unlocked"
+
+        // Default (production) server, pre-filled on a fresh install.
+        const val DEFAULT_SERVER = "https://asset-management-lovat-eight.vercel.app"
     }
 }

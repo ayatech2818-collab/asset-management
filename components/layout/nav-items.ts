@@ -8,6 +8,7 @@ import {
   Users,
   FileBarChart,
   Settings,
+  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/types";
@@ -35,6 +36,7 @@ export const NAV: NavItem[] = [
   { href: "/transfers", label: "Transfers", icon: ArrowLeftRight, show: ALL },
   { href: "/monitoring", label: "Monitoring", icon: MapPin, show: STAFF, bottomBar: true },
   { href: "/alerts", label: "Alerts", icon: Bell, show: ALL, bottomBar: true },
+  { href: "/download", label: "Get the app", icon: Smartphone, show: ALL },
   { href: "/employees", label: "Employees", icon: Users, show: ADMIN },
   { href: "/reports", label: "Reports", icon: FileBarChart, show: STAFF },
   { href: "/settings", label: "Settings", icon: Settings, show: ADMIN },

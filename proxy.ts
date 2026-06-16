@@ -9,7 +9,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Run on everything except API routes, Next internals, and static assets.
-    // `/api` is excluded so the device heartbeat endpoint isn't gated by auth.
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // `/api` is excluded so the device heartbeat endpoint isn't gated by auth;
+    // `.apk` is excluded so the agent download is a public static file.
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|apk)$).*)",
   ],
 };

@@ -36,8 +36,8 @@ only screen says exactly what it reports.
 5. Tap **"Allow background running (battery)"** and accept, so Android
    doesn't kill the 15-minute schedule. On aggressive OEMs (Xiaomi, Oppo,
    Vivo, Realme) also set the app to "No restrictions" in battery settings.
-6. Tap **"Enable uninstall protection"** and confirm the device-admin prompt so
-   the employee can't remove the app.
+6. Tap **"Enable uninstall protection"** (basic deterrent). For protection the
+   employee truly can't bypass, see **"Preventing uninstall"** below.
 
 The phone appears in **Monitoring** within a minute (the save fires an
 immediate test heartbeat) and reports every ~15 minutes after that.
@@ -62,9 +62,36 @@ can make changes. Monitoring keeps running in the background either way.
 The lock state also rides down on the regular heartbeat, so it stays in sync
 even between app opens (within ~15 min).
 
-**Uninstall protection**: while the device-admin is active the app cannot be
-uninstalled. To remove the app, unlock it from the dashboard, open it, tap
-**"Disable uninstall protection"**, then uninstall.
+## Preventing uninstall
+
+There are two levels, because of how Android works:
+
+- **Basic (Device Admin)** — the **"Enable uninstall protection"** button
+  registers the app as a device administrator. ⚠️ This does **not** truly stop
+  uninstall: a determined employee can open **Settings → Security → Device admin
+  apps**, deactivate "Asset Agent", and then uninstall. It's only a speed bump.
+- **Full (Device Owner)** — the only way to *actually* block uninstall. The app
+  becomes the owner of a fully-managed phone, so uninstall is greyed out and
+  there is no deactivate toggle. It's provisioned once over USB on a **freshly
+  reset phone that has no accounts added yet**:
+
+  1. Factory-reset the phone. In the setup wizard, **skip adding any Google (or
+     other) account** — device owner can't be set once an account exists.
+  2. Enable **Developer options → USB debugging**, connect to a PC with `adb`,
+     and install the APK: `adb install app-debug.apk`
+  3. Make the agent the device owner:
+
+     ```
+     adb shell dpm set-device-owner com.ayatech.assetagent/.AgentDeviceAdminReceiver
+     ```
+
+  4. Open **Asset Agent** and tap **"Enable uninstall protection"** — the status
+     line reads **"Fully protected"** and the app can no longer be removed.
+
+  To decommission later: open the app, tap **"Disable uninstall protection"**,
+  then run
+  `adb shell dpm remove-active-admin com.ayatech.assetagent/.AgentDeviceAdminReceiver`
+  (or just factory-reset the phone).
 
 ## Notes
 

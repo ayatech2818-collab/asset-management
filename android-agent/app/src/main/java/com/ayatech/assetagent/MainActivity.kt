@@ -98,32 +98,75 @@ class MainActivity : AppCompatActivity() {
         refreshProtectButton()
     }
 
-    // Device Admin = uninstall protection. While active, Android won't let the
-    // app be uninstalled until staff deactivate it from this (locked) screen.
+    private fun dpm() =
+        getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+    // Uninstall protection. Plain Device Admin can't actually block uninstall
+    // (the user can deactivate it in Settings → Security and then remove the
+    // app), so true blocking only works when this app is the device owner —
+    // then setUninstallBlocked() greys out uninstall with no way around it.
     private fun toggleUninstallProtection() {
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val dpm = dpm()
         val admin = AgentDeviceAdminReceiver.component(this)
-        if (dpm.isAdminActive(admin)) {
-            dpm.removeActiveAdmin(admin)
-            Toast.makeText(this, R.string.protect_disabled, Toast.LENGTH_SHORT).show()
-            refreshProtectButton()
-        } else {
-            startActivity(
-                Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                    .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                    .putExtra(
-                        DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                        getString(R.string.protect_explanation),
-                    ),
-            )
+        when {
+            dpm.isDeviceOwnerApp(packageName) -> {
+                val nowBlocked = !dpm.isUninstallBlocked(admin, packageName)
+                dpm.setUninstallBlocked(admin, packageName, nowBlocked)
+                Toast.makeText(
+                    this,
+                    if (nowBlocked) R.string.protect_blocked else R.string.protect_unblocked,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            dpm.isAdminActive(admin) -> {
+                // Only a (weak) device admin — allow turning it off.
+                dpm.removeActiveAdmin(admin)
+                Toast.makeText(this, R.string.protect_disabled, Toast.LENGTH_SHORT).show()
+            }
+            else -> {
+                // Enable the basic device-admin deterrent, and make clear that
+                // full blocking needs device-owner provisioning (see README).
+                startActivity(
+                    Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                        .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
+                        .putExtra(
+                            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                            getString(R.string.protect_explanation),
+                        ),
+                )
+                Toast.makeText(this, R.string.protect_needs_owner, Toast.LENGTH_LONG).show()
+            }
         }
+        refreshProtectButton()
     }
 
     private fun refreshProtectButton() {
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val active = dpm.isAdminActive(AgentDeviceAdminReceiver.component(this))
-        findViewById<Button>(R.id.protectButton).text =
-            getString(if (active) R.string.protect_off else R.string.protect_on)
+        val dpm = dpm()
+        val admin = AgentDeviceAdminReceiver.component(this)
+        val owner = dpm.isDeviceOwnerApp(packageName)
+        val adminActive = dpm.isAdminActive(admin)
+        val blocked = owner && dpm.isUninstallBlocked(admin, packageName)
+
+        val btn = findViewById<Button>(R.id.protectButton)
+        val status = findViewById<TextView>(R.id.protectStatus)
+        when {
+            owner -> {
+                btn.text =
+                    getString(if (blocked) R.string.protect_off else R.string.protect_on)
+                status.text = getString(
+                    if (blocked) R.string.protect_status_blocked
+                    else R.string.protect_status_owner_idle,
+                )
+            }
+            adminActive -> {
+                btn.text = getString(R.string.protect_off)
+                status.text = getString(R.string.protect_status_admin_weak)
+            }
+            else -> {
+                btn.text = getString(R.string.protect_on)
+                status.text = getString(R.string.protect_status_none)
+            }
+        }
     }
 
     private fun refreshStatus() {

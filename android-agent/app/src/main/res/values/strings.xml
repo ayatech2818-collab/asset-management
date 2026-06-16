@@ -15,10 +15,16 @@
     <string name="lock_locked_msg">This device is locked by your administrator. Ask an administrator to unlock it from the dashboard.</string>
     <string name="retry">Retry</string>
 
-    <!-- Uninstall protection (Device Admin) -->
+    <!-- Uninstall protection -->
     <string name="protect_on">Enable uninstall protection</string>
     <string name="protect_off">Disable uninstall protection</string>
     <string name="protect_explanation">This lets the administrator stop the monitoring app from being removed from this company device.</string>
-    <string name="protect_enabled">Uninstall protection is ON.</string>
     <string name="protect_disabled">Uninstall protection is OFF.</string>
+    <string name="protect_blocked">Uninstall blocked.</string>
+    <string name="protect_unblocked">Uninstall allowed.</string>
+    <string name="protect_needs_owner">Basic protection only — it can still be removed from Settings. For full blocking, set up the app as device owner (see the README).</string>
+    <string name="protect_status_blocked">Fully protected — this app cannot be uninstalled (managed device).</string>
+    <string name="protect_status_owner_idle">Managed device. Tap to block uninstall.</string>
+    <string name="protect_status_admin_weak">Basic only — can still be removed via Settings → Security. Set up device owner for full protection.</string>
+    <string name="protect_status_none">Not protected.</string>
 </resources>

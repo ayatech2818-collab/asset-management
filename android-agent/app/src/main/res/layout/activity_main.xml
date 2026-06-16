@@ -74,6 +74,15 @@
             android:text="@string/protect_on" />
 
         <TextView
+            android:id="@+id/protectStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textSize="12sp"
+            android:textColor="#62625B"
+            android:text="@string/protect_status_none" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
